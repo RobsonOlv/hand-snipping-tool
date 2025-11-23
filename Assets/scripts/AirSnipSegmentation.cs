@@ -183,28 +183,28 @@ public class AirSnipSegmentation : MonoBehaviour
         Object.Destroy(maskTexture);
         
         // 6. Faz o crop usando o bounding box (igual ao Python: crop = img[y1:y2, x1:x2])
-        int cropX = x1;
-        int cropY = y1;
-        int cropWidth = x2 - x1;
-        int cropHeight = y2 - y1;
+        // int cropX = x1;
+        // int cropY = y1;
+        // int cropWidth = x2 - x1;
+        // int cropHeight = y2 - y1;
         
-        Debug.Log($"Crop: ({cropX}, {cropY}) size: {cropWidth}x{cropHeight}");
+        // Debug.Log($"Crop: ({cropX}, {cropY}) size: {cropWidth}x{cropHeight}");
         
-        if (cropWidth <= 0 || cropHeight <= 0)
-        {
-            Debug.LogWarning("Bounding box inválida, retornando imagem completa");
-            return fullTexture;
-        }
+        // if (cropWidth <= 0 || cropHeight <= 0)
+        // {
+        //     Debug.LogWarning("Bounding box inválida, retornando imagem completa");
+        //     return fullTexture;
+        // }
         
         // Cria textura cropada
-        Texture2D croppedTexture = new Texture2D(cropWidth, cropHeight, TextureFormat.RGBA32, mipChain: false);
-        Color[] croppedPixels = fullTexture.GetPixels(cropX, cropY, cropWidth, cropHeight);
-        croppedTexture.SetPixels(croppedPixels);
-        croppedTexture.Apply();
+        // Texture2D croppedTexture = new Texture2D(cropWidth, cropHeight, TextureFormat.RGBA32, mipChain: false);
+        // Color[] croppedPixels = fullTexture.GetPixels(cropX, cropY, cropWidth, cropHeight);
+        // croppedTexture.SetPixels(croppedPixels);
+        // croppedTexture.Apply();
         
-        Object.Destroy(fullTexture);
+        // Object.Destroy(fullTexture);
         
-        return croppedTexture;
+        return fullTexture;
     }
 
     void OnDestroy()

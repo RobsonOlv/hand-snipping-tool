@@ -41,100 +41,6 @@ public class WorldCameraCanvas : MonoBehaviour
     isActive = true;
   }
 
-  // public void MakeCameraSnapshot(Vector3 snapshotCenter, float screenshotWidth)
-  // {
-  //   try
-  //   {
-  //     var webCamTexture = webCamTextureManager.WebCamTexture;
-  //     if (webCamTexture == null || !webCamTexture.isPlaying)
-  //     {
-  //       Debug.Log("WebCamTexture is null or not playing.");
-  //       Debug.Log("Dev playing");
-
-  //       Texture2D defaultTexture = new Texture2D(256, 256);
-  //       Color[] colorOptions = new Color[]
-  //       {
-  //           Color.red,
-  //           Color.green,
-  //           Color.blue,
-  //           Color.yellow,
-  //           Color.magenta,
-  //           Color.cyan
-  //       };
-  //       Color fillColor = colorOptions[UnityEngine.Random.Range(0, colorOptions.Length)];
-  //       Color[] fillPixels = new Color[256 * 256];
-
-  //       for (int i = 0; i < fillPixels.Length; i++)
-  //         fillPixels[i] = fillColor;
-  //       defaultTexture.SetPixels(fillPixels);
-  //       defaultTexture.Apply();
-
-  //       var newDevScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, defaultTexture, m_debugText);
-  //       // screenshots.Add(newDevScreenshot);
-  //       // OVRSpatialAnchor devAnchor = newDevScreenshot.interactionContainer.GetComponent<OVRSpatialAnchor>();
-  //       // anchorManager.SaveAnchor(devAnchor);
-
-  //       return;
-  //     }
-
-  //     // if (m_cameraSnapshot == null)
-  //     // {
-  //     //   Debug.Log("m_cameraSnapshot is null, creating a new Texture2D.");
-  //     //   m_cameraSnapshot = new Texture2D(webCamTexture.width, webCamTexture.height, TextureFormat.RGBA32, false);
-  //     // }
-
-  //     // m_pixelsBuffer ??= new Color32[webCamTexture.width * webCamTexture.height];
-  //     // _ = webCamTextureManager.WebCamTexture.GetPixels32(m_pixelsBuffer);
-  //     // m_cameraSnapshot.SetPixels32(m_pixelsBuffer);
-  //     // m_cameraSnapshot.Apply();
-
-  //     Texture2D snapshotClone = new Texture2D(webCamTexture.width, webCamTexture.height, TextureFormat.RGBA32, false);
-  //     m_pixelsBuffer ??= new Color32[webCamTexture.width * webCamTexture.height];
-  //     _ = webCamTextureManager.WebCamTexture.GetPixels32(m_pixelsBuffer);
-  //     snapshotClone.SetPixels32(m_pixelsBuffer);
-  //     snapshotClone.Apply();
-
-  //     // Passo 1: Converter a posição do mundo para ponto na tela
-  //     // Vector3 screenPoint = Camera.main.WorldToScreenPoint(worldCenter);
-
-  //     // // Passo 2: Inverter eixo Y para coincidir com textura
-  //     // float screenY = Screen.height - screenPoint.y;
-  //     // Vector2 screenPos = new Vector2(screenPoint.x, screenY);
-
-  //     // // Passo 3: Calcular fator de escala entre a tela e a textura da câmera
-  //     // float widthRatio = (float)webCamTexture.width / Screen.width;
-  //     // float heightRatio = (float)webCamTexture.height / Screen.height;
-
-  //     // // Passo 4: Converter screenPos para coordenadas da textura
-  //     // int centerX = (int)(screenPos.x * widthRatio);
-  //     // int centerY = (int)(screenPos.y * heightRatio);
-
-  //     // // Passo 5: Definir o tamanho do retângulo de captura em pixels
-  //     // int pixelWidth = (int)(worldWidth * webCamTexture.width);
-  //     // int pixelHeight = (int)(worldHeight * webCamTexture.height);
-  //     // // int pixelWidth = (int)(worldWidth * webCamTexture.width);
-  //     // // int pixelHeight = (int)(worldHeight * webCamTexture.height);
-
-  //     // // Garantir que está dentro dos limites
-  //     // int startX = Mathf.Clamp(centerX - pixelWidth / 2, 0, webCamTexture.width - pixelWidth);
-  //     // int startY = Mathf.Clamp(centerY - pixelHeight / 2, 0, webCamTexture.height - pixelHeight);
-
-  //     // // Passo 6: Recortar os pixels e criar nova textura
-  //     // Texture2D croppedTexture = new Texture2D(pixelWidth, pixelHeight, TextureFormat.RGBA32, false);
-  //     // Color[] croppedPixels = webCamTexture.GetPixels(startX, startY, pixelWidth, pixelHeight);
-  //     // croppedTexture.SetPixels(croppedPixels);
-  //     // croppedTexture.Apply();
-
-  //     var newScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, snapshotClone, m_debugText);
-  //   }
-  //   catch (System.Exception e)
-  //   {
-  //     m_debugText.text = $"Erro WorldCameraCanvas: \n{e.Message}\n{e.StackTrace}";
-  //     m_debugText.enabled = true;
-  //   }
-
-  // }
-
   public void MakeCameraSnapshot(Vector3 snapshotCenter2, float screenshotWidth)
   {
     try
@@ -167,41 +73,9 @@ public class WorldCameraCanvas : MonoBehaviour
       }
 
       // Processa a imagem com AirSnipSegmentation (aplica máscara no canal alpha)
-      Texture2D segmentedTexture = AirSnipSegmentationInstance.GetSegmentationMask(sourceTexture);
+      // Texture2D segmentedTexture = AirSnipSegmentationInstance.GetSegmentationMask(sourceTexture);
 
-      // Debug: Verifica se a segmentação foi aplicada
-      // Debug.Log($"Textura original: {sourceTexture.width}x{sourceTexture.height}");
-      // Debug.Log($"Textura segmentada: {segmentedTexture.width}x{segmentedTexture.height}");
-      
-      // // Verifica alguns pixels do canal alpha
-      // int totalPixels = segmentedTexture.width * segmentedTexture.height;
-      // int transparentCount = 0;
-      // int opaqueCount = 0;
-      
-      // Color[] pixels = segmentedTexture.GetPixels();
-      // for (int i = 0; i < pixels.Length; i++)
-      // {
-      //   if (pixels[i].a < 0.1f)
-      //     transparentCount++;
-      //   else if (pixels[i].a > 0.9f)
-      //     opaqueCount++;
-      // }
-      
-      // Debug.Log($"Pixels transparentes (alpha < 0.1): {transparentCount}/{totalPixels} ({(transparentCount * 100f / totalPixels):F1}%)");
-      // Debug.Log($"Pixels opacos (alpha > 0.9): {opaqueCount}/{totalPixels} ({(opaqueCount * 100f / totalPixels):F1}%)");
-      
-      // // Pixel do centro
-      // Color centerPixel = segmentedTexture.GetPixel(segmentedTexture.width / 2, segmentedTexture.height / 2);
-      // Debug.Log($"Pixel central - R:{centerPixel.r:F2}, G:{centerPixel.g:F2}, B:{centerPixel.b:F2}, A:{centerPixel.a:F2}");
-
-      // var newScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, sourceTexture, m_debugText);
-      var newScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, segmentedTexture, m_debugText);
-      
-      // Libera a textura temporária se não for da câmera
-      // if (webCamTexture == null || !webCamTexture.isPlaying)
-      // {
-      //   Destroy(sourceTexture);
-      // }
+      var newScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, sourceTexture, m_debugText);
     }
     catch (System.Exception e)
     {

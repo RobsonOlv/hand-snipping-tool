@@ -18,6 +18,7 @@ public class MenuOptions : MonoBehaviour
   public AudioSource audioSource;
   public AudioClip cachedAudioClip = null;
   public AnchorManager anchorManager;
+  public AirSnipSegmentation AirSnipSegmentationInstance;
 
   [System.Serializable]
   private class TTSRequest
@@ -321,6 +322,171 @@ public class MenuOptions : MonoBehaviour
     //   Debug.LogError("OVRSpatialAnchor component not found on screenshotContainer.");
     // }
     // renderer[0].enabled = true;
+  }
+
+  public void SegmentImage()
+  {
+    try
+    {
+      loadingSpinner.SetActive(true);
+      
+      // Realizar a segmentação da imagem
+      Texture2D segmentedTexture = AirSnipSegmentationInstance.GetSegmentationMask(screenshotImage);
+      
+      if (segmentedTexture == null)
+      {
+        Debug.LogError("Segmentation returned null texture.");
+        return;
+      }
+      
+      // Atualizar a textura no screenshotImage (usada pelo menu)
+      screenshotImage = segmentedTexture;
+      
+      // Encontrar o ScreenShotComponent no container via holder
+      ScreenShotComponentHolder holder = screenshotContainer.GetComponent<ScreenShotComponentHolder>();
+      
+      if (holder != null && holder.screenshotComponent != null)
+      {
+        // Atualizar a textura do quad frontal
+        holder.screenshotComponent.UpdateTexture(segmentedTexture);
+        Debug.Log("Segmented texture applied successfully.");
+      }
+      else
+      {
+        Debug.LogError("ScreenShotComponentHolder or screenshotComponent not found.");
+      }
+      
+    } 
+    catch (System.Exception e)
+    {
+      Debug.LogError("Error during image segmentation: " + e.Message);
+      if (debugText != null)
+      {
+        debugText.text = "Erro na segmentação: " + e.Message;
+        debugText.enabled = true;
+      }
+    }
+    finally
+    {
+      loadingSpinner.SetActive(false);
+    }
+  }
+
+  public void DownloadImage()
+  {
+    if (screenshotImage == null)
+    {
+      Debug.LogError("Screenshot image is null. Cannot download.");
+      if (debugText != null)
+      {
+        debugText.text = "Erro: Imagem não encontrada.";
+        debugText.enabled = true;
+      }
+      return;
+    }
+
+    try
+    {
+      // Gerar nome do arquivo com timestamp
+      string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+      string fileName = $"AirSnip_{timestamp}.png";
+      
+      // Caminho para a galeria do Quest (Pictures folder)
+      // No Android (Quest), usar o caminho de Pictures público
+      string picturesPath = "/storage/emulated/0/Pictures";
+      string airSnipFolder = Path.Combine(picturesPath, "AirSnip");
+      
+      // Criar pasta AirSnip se não existir
+      if (!Directory.Exists(airSnipFolder))
+      {
+        Directory.CreateDirectory(airSnipFolder);
+        Debug.Log($"Created directory: {airSnipFolder}");
+      }
+      
+      string filePath = Path.Combine(airSnipFolder, fileName);
+      
+      // Codificar a textura para PNG
+      byte[] imageBytes = screenshotImage.EncodeToPNG();
+      
+      // Salvar o arquivo
+      File.WriteAllBytes(filePath, imageBytes);
+      
+      Debug.Log($"Image saved to: {filePath}");
+      
+      // Notificar a galeria do Android sobre o novo arquivo
+      RefreshAndroidGallery(filePath);
+      
+      if (debugText != null)
+      {
+        debugText.text = $"Imagem salva em Pictures/AirSnip/";
+        debugText.enabled = true;
+        StartCoroutine(HideDebugTextAfterDelay(3f));
+      }
+    }
+    catch (System.Exception e)
+    {
+      Debug.LogError($"Error saving image: {e.Message}");
+      if (debugText != null)
+      {
+        debugText.text = $"Erro ao salvar: {e.Message}";
+        debugText.enabled = true;
+      }
+    }
+  }
+  
+  private void RefreshAndroidGallery(string filePath)
+  {
+    // Usar AndroidJavaClass para notificar a galeria do Android sobre o novo arquivo
+    #if UNITY_ANDROID && !UNITY_EDITOR
+    try
+    {
+      using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+      using (AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+      using (AndroidJavaObject contentResolver = currentActivity.Call<AndroidJavaObject>("getContentResolver"))
+      using (AndroidJavaClass mediaStore = new AndroidJavaClass("android.provider.MediaStore$Images$Media"))
+      {
+        // Inserir a imagem na MediaStore
+        using (AndroidJavaObject contentValues = new AndroidJavaObject("android.content.ContentValues"))
+        {
+          contentValues.Call("put", "relative_path", "Pictures/AirSnip");
+          contentValues.Call("put", "_display_name", Path.GetFileName(filePath));
+          contentValues.Call("put", "mime_type", "image/png");
+          
+          using (AndroidJavaObject uri = mediaStore.CallStatic<AndroidJavaObject>("getContentUri", "external"))
+          {
+            using (AndroidJavaObject insertedUri = contentResolver.Call<AndroidJavaObject>("insert", uri, contentValues))
+            {
+              if (insertedUri != null)
+              {
+                // Copiar o arquivo para o URI inserido
+                using (AndroidJavaObject outputStream = contentResolver.Call<AndroidJavaObject>("openOutputStream", insertedUri))
+                {
+                  byte[] imageBytes = File.ReadAllBytes(filePath);
+                  sbyte[] signedBytes = System.Array.ConvertAll(imageBytes, b => unchecked((sbyte)b));
+                  outputStream.Call("write", signedBytes);
+                  outputStream.Call("close");
+                  Debug.Log("Image added to Android MediaStore/Gallery");
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    catch (System.Exception e)
+    {
+      Debug.LogWarning($"Could not refresh Android gallery: {e.Message}");
+    }
+    #endif
+  }
+  
+  private IEnumerator HideDebugTextAfterDelay(float delay)
+  {
+    yield return new WaitForSeconds(delay);
+    if (debugText != null)
+    {
+      debugText.enabled = false;
+    }
   }
 }
 

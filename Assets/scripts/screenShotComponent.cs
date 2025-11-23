@@ -8,11 +8,17 @@ public class ScreenShotComponent
 {
   public GameObject interactionContainer;
   public GameObject imageObj;
+  private GameObject frontQuad;
+  private MakeInteractable interactableMaker;
+  public Texture2D currentTexture; // Armazena a textura atual (pode ser original ou segmentada)
 
   public ScreenShotComponent(Transform cameraCanvas, GameObject parent, GameObject menu, Texture2D texture, TextMeshProUGUI debugText)
   {
     try
     {
+      // Armazenar a textura inicial
+      currentTexture = texture;
+      
       Material cubeMaterial = Resources.Load<Material>("Materials/ScreenshotBackgroundMaterial");
       
       if (cubeMaterial == null)
@@ -22,13 +28,16 @@ public class ScreenShotComponent
       
       // Criar instância do material e aplicar textura com escala invertida em Y
       Material cubeMaterialInstance = new Material(cubeMaterial);
-      cubeMaterialInstance.SetTexture("_BaseMap", texture);
-      cubeMaterialInstance.SetTextureScale("_BaseMap", new Vector2(-1, -1)); // Inverte X e Y
+      // cubeMaterialInstance.SetTexture("_BaseMap", texture);
+      // cubeMaterialInstance.SetTextureScale("_BaseMap", new Vector2(-1, -1)); // Inverte X e Y
 
       interactionContainer = new GameObject("ScreenshotInteractionContainer");
       interactionContainer.transform.position = cameraCanvas.position;
       interactionContainer.transform.rotation = cameraCanvas.rotation;
       
+      // Adicionar este componente ao container para permitir acesso posterior
+      var componentHolder = interactionContainer.AddComponent<ScreenShotComponentHolder>();
+      componentHolder.screenshotComponent = this;
 
       AudioHolder audioHolder = interactionContainer.AddComponent<AudioHolder>();
 
@@ -38,22 +47,6 @@ public class ScreenShotComponent
       imageObj.transform.SetParent(interactionContainer.transform, false);
       var cubeRenderer = imageObj.GetComponent<Renderer>();
       cubeRenderer.material = cubeMaterialInstance;
-
-
-      // imageObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
-      // imageObj.name = "TemporaryImage";
-      // var renderer = imageObj.GetComponent<Renderer>();
-      // Shader unlitShader = Shader.Find("Unlit/Texture");
-      // if (unlitShader == null)
-      // {
-      //     throw new System.Exception("Shader 'Unlit/Texture' não foi encontrado.");
-      // }
-      // Material material = new Material(unlitShader);
-      // material.mainTexture = textureCopy;
-      // renderer.material = material;
-
-      // imageObj.transform.position = cameraCanvas.position;
-      // imageObj.transform.rotation = cameraCanvas.rotation;
 
       // Ajusta escala proporcional ao tamanho da textura ou do canvas
       float width = texture.width;
@@ -74,6 +67,8 @@ public class ScreenShotComponent
       quad.transform.localPosition = new Vector3(0, 0, -0.65f); //traz pra frente do cubo
       quad.transform.localRotation = Quaternion.identity;
       quad.transform.localScale = Vector3.one;
+      
+      frontQuad = quad; // Salvar referência para atualização posterior
 
       var quadRenderer = quad.GetComponent<Renderer>();
       
@@ -191,7 +186,7 @@ public class ScreenShotComponent
       MakeGrabbable grabbableMaker = new MakeGrabbable();
       grabbableMaker.SetupGrabbable(interactionContainer);
       
-      MakeInteractable interactableMaker = new MakeInteractable();
+      interactableMaker = new MakeInteractable();
       interactableMaker.SetupInteractable(interactionContainer, imageObj, menu, texture, debugText);
     }
     catch (System.Exception e)
@@ -209,6 +204,22 @@ public class ScreenShotComponent
     if (interactionContainer != null)
     {
         Object.Destroy(interactionContainer);
+    }
+  }
+
+  // Método público para atualizar a textura do quad frontal
+  public void UpdateTexture(Texture2D newTexture)
+  {
+    // Atualizar a textura armazenada
+    currentTexture = newTexture;
+    
+    if (frontQuad != null)
+    {
+      var renderer = frontQuad.GetComponent<Renderer>();
+      if (renderer != null && renderer.material != null)
+      {
+        renderer.material.SetTexture("_BaseMap", newTexture);
+      }
     }
   }
 }

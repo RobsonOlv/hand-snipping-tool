@@ -8,14 +8,6 @@ public class MakeInteractable : MonoBehaviour
 {
   public void SetupInteractable(GameObject parent, GameObject screenshot, GameObject menu, Texture2D texture, TextMeshProUGUI debugText = null)
   {
-    // Garantir que tenha um collider
-    // var collider = screenshot.GetComponent<BoxCollider>();
-    // if (collider == null)
-    // {
-    //   collider = screenshot.AddComponent<BoxCollider>();
-    //   collider.size = new Vector3(0.1f, 0.1f, 0.001f);
-    // }
-
     // Criar Surface
     GameObject surfaceObj = new GameObject("Surface");
     surfaceObj.transform.SetParent(parent.transform, false);
@@ -28,7 +20,6 @@ public class MakeInteractable : MonoBehaviour
     clippedSurface.InjectPlaneSurface(planeSurface);
     var boundsSurface = surfaceObj.AddComponent<BoundsClipper>();
     boundsSurface.Size = new Vector3(0.8f, 0.8f, 1f);
-    // boundsSurface.Position = Vector3.zero;
     clippedSurface.InjectClippers(new List<IBoundsClipper> { boundsSurface });
 
     // Criar e configurar PokeInteractable
@@ -39,24 +30,34 @@ public class MakeInteractable : MonoBehaviour
     visualInteraction.InjectPokeInteractable(pokeInteractable);
     visualInteraction.InjectButtonBaseTransform(surfaceObj.transform);
 
-    pokeInteractable.WhenStateChanged += (args) => UpdateState(args, parent, menu, texture, debugText);
+    // Não passa a textura diretamente - busca do holder quando clicar
+    pokeInteractable.WhenStateChanged += (args) => UpdateState(args, parent, menu, debugText);
   }
 
-  private void UpdateState(InteractableStateChangeArgs args, GameObject parent, GameObject menu, Texture2D texture, TextMeshProUGUI debugText)
+  private void UpdateState(InteractableStateChangeArgs args, GameObject parent, GameObject menu, TextMeshProUGUI debugText)
   {
     if (args.NewState == InteractableState.Select)
     {
-      // if (!menu.activeSelf)
-      //   menu.SetActive(true);
-      
-      // var menuOptions = menu.GetComponent<MenuOptions>();
-
-      // menuOptions.HandleMenuStateChange(parent, texture, debugText);
       try
       {
+        // Buscar a textura atual do ScreenShotComponentHolder
+        ScreenShotComponentHolder holder = parent.GetComponent<ScreenShotComponentHolder>();
+        Texture2D currentTexture = null;
+        
+        if (holder != null && holder.screenshotComponent != null)
+        {
+          currentTexture = holder.screenshotComponent.currentTexture;
+        }
+        
+        if (currentTexture == null)
+        {
+          Debug.LogError("Current texture not found in ScreenShotComponentHolder.");
+          return;
+        }
+        
         var menuOptions = menu.GetComponent<MenuOptions>();
         menuOptions.screenshotContainer = parent;
-        menuOptions.screenshotImage = texture;
+        menuOptions.screenshotImage = currentTexture; // Usa a textura atual (original ou segmentada)
         menuOptions.debugText = debugText;
 
         AudioHolder audioHolder = parent.GetComponent<AudioHolder>();
