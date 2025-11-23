@@ -25,6 +25,7 @@ public class WorldCameraCanvas : MonoBehaviour
   public AnchorManager anchorManager;
   public float canvaSizeHorizontal = 0.15f;
   public float canvaSizeVertical = 0.25f;
+  public AirSnipSegmentation AirSnipSegmentationInstance;
   private List<OVRSpatialAnchor.UnboundAnchor> _unboundAnchors = new();
   private const string AnchorIdsKey = "SavedAnchorIds";
 
@@ -138,84 +139,69 @@ public class WorldCameraCanvas : MonoBehaviour
   {
     try
     {
+      Texture2D sourceTexture;
+      
       var webCamTexture = webCamTextureManager.WebCamTexture;
       if (webCamTexture == null || !webCamTexture.isPlaying)
       {
-        Texture2D defaultTexture = new Texture2D(256, 256);
-        Color[] colorOptions = new Color[] {
-          Color.red, Color.green, Color.blue, Color.yellow, Color.magenta, Color.cyan
-        };
-        Color fillColor = colorOptions[UnityEngine.Random.Range(0, colorOptions.Length)];
-        Color[] fillPixels = new Color[256 * 256];
-        for (int i = 0; i < fillPixels.Length; i++) fillPixels[i] = fillColor;
-        defaultTexture.SetPixels(fillPixels);
-        defaultTexture.Apply();
+        // Modo dev/play: carrega imagem de teste
+        Texture2D dogImage = Resources.Load<Texture2D>("Images/dog");
+        
+        if (dogImage == null)
+        {
+          m_debugText.text = "Imagem 'dog.jpeg' não encontrada em Assets/Resources/Images/";
+          m_debugText.enabled = true;
+          return;
+        }
 
-        var newDevScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, defaultTexture, m_debugText);
-        return;
+        sourceTexture = dogImage;
       }
-
-      // Captura da textura da câmera
-      Texture2D fullTexture = new Texture2D(webCamTexture.width, webCamTexture.height, TextureFormat.RGBA32, false);
-      m_pixelsBuffer ??= new Color32[webCamTexture.width * webCamTexture.height];
-      _ = webCamTexture.GetPixels32(m_pixelsBuffer);
-      fullTexture.SetPixels32(m_pixelsBuffer);
-      fullTexture.Apply();
-
-      // Converter ponto do mundo para ponto da tela
-      // Vector3 screenPoint = passthroughCamera.WorldToScreenPoint(snapshotCenter);
-
-      // if (screenPoint.z < 0)
-      // {
-      //     m_debugText.text = "SnapshotCenter está atrás da câmera.";
-      //     return;
-      // }
-
-      Vector3 snapshotCenter = transform.position;
-
-      // Converte o ponto do mundo para viewport
-      Vector3 viewportPoint = passthroughCamera.WorldToViewportPoint(snapshotCenter);
-
-      // Se estiver atrás da câmera, aborta
-      if (viewportPoint.z < 0)
+      else
       {
-        m_debugText.text = "Ponto está atrás da câmera";
-        m_debugText.enabled = true;
-        return;
+        // Captura da textura da câmera
+        sourceTexture = new Texture2D(webCamTexture.width, webCamTexture.height, TextureFormat.RGBA32, false);
+        m_pixelsBuffer ??= new Color32[webCamTexture.width * webCamTexture.height];
+        _ = webCamTexture.GetPixels32(m_pixelsBuffer);
+        sourceTexture.SetPixels32(m_pixelsBuffer);
+        sourceTexture.Apply();
       }
 
-      // Converte para coordenadas de textura
-      int centerX = Mathf.RoundToInt(viewportPoint.x * webCamTexture.width);
-      int centerY = Mathf.RoundToInt((1f - viewportPoint.y) * webCamTexture.height); // inverte eixo Y
+      // Processa a imagem com AirSnipSegmentation (aplica máscara no canal alpha)
+      Texture2D segmentedTexture = AirSnipSegmentationInstance.GetSegmentationMask(sourceTexture);
 
-      // Calcula tamanho do frustum no ponto do quadro
-      float distance = viewportPoint.z;
-      // float frustumHeight = 2.0f * distance * Mathf.Tan(passthroughCamera.fieldOfView * 0.5f * Mathf.Deg2Rad);
-      // float frustumWidth = frustumHeight * passthroughCamera.aspect;
-      float frustumHeight = 2.0f * distance * Mathf.Tan(passthroughCamera.fieldOfView * 0.5f * Mathf.Deg2Rad);
-      float frustumWidth = frustumHeight * ((float)webCamTexture.width / webCamTexture.height);
+      // Debug: Verifica se a segmentação foi aplicada
+      // Debug.Log($"Textura original: {sourceTexture.width}x{sourceTexture.height}");
+      // Debug.Log($"Textura segmentada: {segmentedTexture.width}x{segmentedTexture.height}");
+      
+      // // Verifica alguns pixels do canal alpha
+      // int totalPixels = segmentedTexture.width * segmentedTexture.height;
+      // int transparentCount = 0;
+      // int opaqueCount = 0;
+      
+      // Color[] pixels = segmentedTexture.GetPixels();
+      // for (int i = 0; i < pixels.Length; i++)
+      // {
+      //   if (pixels[i].a < 0.1f)
+      //     transparentCount++;
+      //   else if (pixels[i].a > 0.9f)
+      //     opaqueCount++;
+      // }
+      
+      // Debug.Log($"Pixels transparentes (alpha < 0.1): {transparentCount}/{totalPixels} ({(transparentCount * 100f / totalPixels):F1}%)");
+      // Debug.Log($"Pixels opacos (alpha > 0.9): {opaqueCount}/{totalPixels} ({(opaqueCount * 100f / totalPixels):F1}%)");
+      
+      // // Pixel do centro
+      // Color centerPixel = segmentedTexture.GetPixel(segmentedTexture.width / 2, segmentedTexture.height / 2);
+      // Debug.Log($"Pixel central - R:{centerPixel.r:F2}, G:{centerPixel.g:F2}, B:{centerPixel.b:F2}, A:{centerPixel.a:F2}");
 
-      // Proporção real: world space para texture pixels
-      float pixelPerMeter = webCamTexture.width / frustumWidth;
-      float pixelPerMeterX = webCamTexture.width / frustumWidth;
-      float pixelPerMeterY = webCamTexture.height / frustumHeight;
-
-      int pixelSize = Mathf.RoundToInt(screenshotWidth * pixelPerMeter) * 3;
-      int pixelWidth = pixelSize;
-      int pixelHeight = pixelSize;
-      // int pixelWidth = Mathf.RoundToInt(screenshotWidth * pixelPerMeterX) * 4;
-      // int pixelHeight = Mathf.RoundToInt(screenshotWidth * pixelPerMeterY) * 4;
-
-      int startX = Mathf.Clamp(centerX - pixelWidth / 2, 0, webCamTexture.width - pixelWidth);
-      int startY = Mathf.Clamp(centerY - pixelHeight / 2, 0, webCamTexture.height - pixelHeight);
-
-      // Cria a textura recortada
-      Texture2D cropped = new Texture2D(pixelWidth, pixelHeight, TextureFormat.RGBA32, false);
-      Color[] pixels = webCamTexture.GetPixels(startX, startY, pixelWidth, pixelHeight);
-      cropped.SetPixels(pixels);
-      cropped.Apply();
-
-      var newScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, cropped, m_debugText);
+      // var newScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, sourceTexture, m_debugText);
+      var newScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, segmentedTexture, m_debugText);
+      
+      // Libera a textura temporária se não for da câmera
+      // if (webCamTexture == null || !webCamTexture.isPlaying)
+      // {
+      //   Destroy(sourceTexture);
+      // }
     }
     catch (System.Exception e)
     {

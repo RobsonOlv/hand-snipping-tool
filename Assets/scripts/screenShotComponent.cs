@@ -13,35 +13,22 @@ public class ScreenShotComponent
   {
     try
     {
-      // Texture2D textureCopy = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
-      // RenderTexture tempRT = RenderTexture.GetTemporary(texture.width, texture.height);
-      // Graphics.Blit(texture, tempRT);
-      // RenderTexture.active = tempRT;
-      // textureCopy.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
-      // textureCopy.Apply();
-      // RenderTexture.active = null;
-      // RenderTexture.ReleaseTemporary(tempRT);
-
-      // GameObject prefab = Resources.Load<GameObject>("Prefabs/ScreenshotAnchorPrefab");
-
-      // if(prefab == null)
-      // {
-      //   throw new System.Exception("Prefab 'ScreenshotAnchorPrefab' não encontrado em Resources/Prefabs.");
-      // }
-
-      Material cubeMaterial = Resources.Load<Material>("Materials/CubeMaterial");
-
+      Material cubeMaterial = Resources.Load<Material>("Materials/ScreenshotBackgroundMaterial");
+      
       if (cubeMaterial == null)
       {
-        throw new System.Exception("Material 'CubeMaterial' não encontrado em Resources/Materials.");
+        throw new System.Exception("Material 'ScreenshotBackgroundMaterial' não encontrado em Resources/Materials.");
       }
+      
+      // Criar instância do material e aplicar textura com escala invertida em Y
+      Material cubeMaterialInstance = new Material(cubeMaterial);
+      cubeMaterialInstance.SetTexture("_BaseMap", texture);
+      cubeMaterialInstance.SetTextureScale("_BaseMap", new Vector2(-1, -1)); // Inverte X e Y
 
-      // interactionContainer = Object.Instantiate(prefab, cameraCanvas.position, cameraCanvas.rotation);
       interactionContainer = new GameObject("ScreenshotInteractionContainer");
       interactionContainer.transform.position = cameraCanvas.position;
       interactionContainer.transform.rotation = cameraCanvas.rotation;
       
-      // var anchor = interactionContainer.AddComponent<OVRSpatialAnchor>();
 
       AudioHolder audioHolder = interactionContainer.AddComponent<AudioHolder>();
 
@@ -49,11 +36,9 @@ public class ScreenShotComponent
       imageObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
       imageObj.name = "ScreenshotCube";
       imageObj.transform.SetParent(interactionContainer.transform, false);
-      // imageObj.transform.localPosition += new Vector3(0, 0, 1f);
-      // imageObj.transform.position = cameraCanvas.position;
-      // imageObj.transform.rotation = cameraCanvas.rotation;
       var cubeRenderer = imageObj.GetComponent<Renderer>();
-      cubeRenderer.material = cubeMaterial;
+      cubeRenderer.material = cubeMaterialInstance;
+
 
       // imageObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
       // imageObj.name = "TemporaryImage";
@@ -91,15 +76,116 @@ public class ScreenShotComponent
       quad.transform.localScale = Vector3.one;
 
       var quadRenderer = quad.GetComponent<Renderer>();
-      Shader unlitShader = Shader.Find("Unlit/Texture");
-      if (unlitShader == null)
+      
+      // Usa shader URP Unlit com transparência (configurado programaticamente)
+      Shader transparentShader = Shader.Find("Universal Render Pipeline/Lit");
+      
+      if (transparentShader == null)
       {
-        throw new System.Exception("Shader 'Unlit/Texture' não foi encontrado.");
+        // Fallback para shaders built-in
+        transparentShader = Shader.Find("Unlit/Transparent");
       }
 
-      Material quadMaterial = new Material(unlitShader);
-      quadMaterial.mainTexture = texture;
+      if (transparentShader == null)
+      {
+        throw new System.Exception("Nenhum shader de transparência foi encontrado. Verifique se o URP está configurado no projeto.");
+      }
+      
+      Material quadMaterial = new Material(transparentShader);
+      
+      // Configura para modo Transparent (URP)
+      if (transparentShader.name.Contains("Universal Render Pipeline"))
+      {
+        // URP usa _BaseMap ao invés de _MainTex
+        quadMaterial.SetTexture("_BaseMap", texture);
+        
+        // URP: Surface Type = Transparent
+        quadMaterial.SetFloat("_Surface", 1); // 0 = Opaque, 1 = Transparent
+        quadMaterial.SetFloat("_Blend", 0); // 0 = Alpha, 1 = Premultiply, 2 = Additive, 3 = Multiply
+        
+        // Configura blend mode para alpha blending
+        quadMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        quadMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        quadMaterial.SetInt("_ZWrite", 0);
+        
+        // Render queue para transparent
+        quadMaterial.renderQueue = 3000;
+        
+        // Habilita keywords corretas
+        quadMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        quadMaterial.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+      }
+      else if (transparentShader.name == "Standard")
+      {
+        // Built-in Standard shader usa _MainTex
+        quadMaterial.mainTexture = texture;
+        
+        // Built-in Standard shader
+        quadMaterial.SetFloat("_Mode", 3); // Transparent mode
+        quadMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        quadMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        quadMaterial.SetInt("_ZWrite", 0);
+        quadMaterial.DisableKeyword("_ALPHATEST_ON");
+        quadMaterial.EnableKeyword("_ALPHABLEND_ON");
+        quadMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        quadMaterial.renderQueue = 3000;
+      }
+      else
+      {
+        // Fallback genérico
+        quadMaterial.mainTexture = texture;
+      }
+
       quadRenderer.material = quadMaterial;
+      Debug.Log("Shader usado em runtime: " + quadMaterial.shader.name);
+
+      Material cubeFaceMaterial = Resources.Load<Material>("Materials/CubeFaceMaterial");
+
+      // Criar quads para todas as outras faces do cubo
+      // Quad traseiro (Back)
+      GameObject backQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+      backQuad.name = "BackQuad";
+      backQuad.transform.SetParent(imageObj.transform, false);
+      backQuad.transform.localPosition = new Vector3(0, 0, 0.65f);
+      backQuad.transform.localRotation = Quaternion.Euler(0, 180, 0);
+      backQuad.transform.localScale = Vector3.one;
+      backQuad.GetComponent<Renderer>().material = new Material(cubeFaceMaterial);
+      
+      // Quad direito (Right)
+      GameObject rightQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+      rightQuad.name = "RightQuad";
+      rightQuad.transform.SetParent(imageObj.transform, false);
+      rightQuad.transform.localPosition = new Vector3(0.5f, 0, 0);
+      rightQuad.transform.localRotation = Quaternion.Euler(0, 90, 0);
+      rightQuad.transform.localScale = new Vector3(1.3f, 1f, 1f); // Ajusta para profundidade do cubo
+      rightQuad.GetComponent<Renderer>().material = new Material(cubeFaceMaterial);
+      
+      // Quad esquerdo (Left)
+      GameObject leftQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+      leftQuad.name = "LeftQuad";
+      leftQuad.transform.SetParent(imageObj.transform, false);
+      leftQuad.transform.localPosition = new Vector3(-0.5f, 0, 0);
+      leftQuad.transform.localRotation = Quaternion.Euler(0, -90, 0);
+      leftQuad.transform.localScale = new Vector3(1.3f, 1f, 1f); // Ajusta para profundidade do cubo
+      leftQuad.GetComponent<Renderer>().material = new Material(cubeFaceMaterial);
+      
+      // Quad superior (Top)
+      GameObject topQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+      topQuad.name = "TopQuad";
+      topQuad.transform.SetParent(imageObj.transform, false);
+      topQuad.transform.localPosition = new Vector3(0, 0.5f, 0);
+      topQuad.transform.localRotation = Quaternion.Euler(-90, 0, 0);
+      topQuad.transform.localScale = new Vector3(1f, 1.3f, 1f); // Ajusta para profundidade do cubo
+      topQuad.GetComponent<Renderer>().material = new Material(cubeFaceMaterial);
+      
+      // Quad inferior (Bottom)
+      GameObject bottomQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+      bottomQuad.name = "BottomQuad";
+      bottomQuad.transform.SetParent(imageObj.transform, false);
+      bottomQuad.transform.localPosition = new Vector3(0, -0.5f, 0);
+      bottomQuad.transform.localRotation = Quaternion.Euler(90, 0, 0);
+      bottomQuad.transform.localScale = new Vector3(1f, 1.3f, 1f); // Ajusta para profundidade do cubo
+      bottomQuad.GetComponent<Renderer>().material = new Material(cubeFaceMaterial);
 
 
       MakeGrabbable grabbableMaker = new MakeGrabbable();
