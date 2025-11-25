@@ -374,6 +374,8 @@ public class MenuOptions : MonoBehaviour
 
   public void DownloadImage()
   {
+    Debug.Log("DownloadImage called");
+    
     if (screenshotImage == null)
     {
       Debug.LogError("Screenshot image is null. Cannot download.");
@@ -391,92 +393,107 @@ public class MenuOptions : MonoBehaviour
       string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
       string fileName = $"AirSnip_{timestamp}.png";
       
-      // Caminho para a galeria do Quest (Pictures folder)
-      // No Android (Quest), usar o caminho de Pictures público
-      string picturesPath = "/storage/emulated/0/Pictures";
-      string airSnipFolder = Path.Combine(picturesPath, "AirSnip");
-      
-      // Criar pasta AirSnip se não existir
-      if (!Directory.Exists(airSnipFolder))
-      {
-        Directory.CreateDirectory(airSnipFolder);
-        Debug.Log($"Created directory: {airSnipFolder}");
-      }
-      
-      string filePath = Path.Combine(airSnipFolder, fileName);
-      
       // Codificar a textura para PNG
       byte[] imageBytes = screenshotImage.EncodeToPNG();
       
-      // Salvar o arquivo
-      File.WriteAllBytes(filePath, imageBytes);
+      Debug.Log($"Image encoded, size: {imageBytes.Length} bytes");
       
-      Debug.Log($"Image saved to: {filePath}");
+      // Salvar usando a API do Android MediaStore
+      bool success = SaveImageToGallery(imageBytes, fileName);
       
-      // Notificar a galeria do Android sobre o novo arquivo
-      RefreshAndroidGallery(filePath);
-      
-      if (debugText != null)
+      if (success)
       {
-        debugText.text = $"Imagem salva em Pictures/AirSnip/";
-        debugText.enabled = true;
-        StartCoroutine(HideDebugTextAfterDelay(3f));
+        Debug.Log($"Image saved successfully: {fileName}");
+        if (debugText != null)
+        {
+          debugText.text = "Imagem salva na galeria!";
+          debugText.enabled = true;
+          StartCoroutine(HideDebugTextAfterDelay(3f));
+        }
+      }
+      else
+      {
+        Debug.LogError("Failed to save image to gallery");
+        if (debugText != null)
+        {
+          debugText.text = "Erro ao salvar imagem";
+          debugText.enabled = true;
+        }
       }
     }
     catch (System.Exception e)
     {
-      Debug.LogError($"Error saving image: {e.Message}");
+      Debug.LogError($"Error saving image: {e.Message}\n{e.StackTrace}");
       if (debugText != null)
       {
-        debugText.text = $"Erro ao salvar: {e.Message}";
+        debugText.text = $"Erro: {e.Message}";
         debugText.enabled = true;
       }
     }
   }
   
-  private void RefreshAndroidGallery(string filePath)
+  private bool SaveImageToGallery(byte[] imageBytes, string fileName)
   {
-    // Usar AndroidJavaClass para notificar a galeria do Android sobre o novo arquivo
     #if UNITY_ANDROID && !UNITY_EDITOR
     try
     {
       using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
       using (AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
       using (AndroidJavaObject contentResolver = currentActivity.Call<AndroidJavaObject>("getContentResolver"))
-      using (AndroidJavaClass mediaStore = new AndroidJavaClass("android.provider.MediaStore$Images$Media"))
       {
-        // Inserir a imagem na MediaStore
-        using (AndroidJavaObject contentValues = new AndroidJavaObject("android.content.ContentValues"))
+        // Usar MediaStore.Images.Media
+        using (AndroidJavaClass mediaStoreImages = new AndroidJavaClass("android.provider.MediaStore$Images$Media"))
         {
-          contentValues.Call("put", "relative_path", "Pictures/AirSnip");
-          contentValues.Call("put", "_display_name", Path.GetFileName(filePath));
-          contentValues.Call("put", "mime_type", "image/png");
-          
-          using (AndroidJavaObject uri = mediaStore.CallStatic<AndroidJavaObject>("getContentUri", "external"))
+          using (AndroidJavaObject contentValues = new AndroidJavaObject("android.content.ContentValues"))
           {
-            using (AndroidJavaObject insertedUri = contentResolver.Call<AndroidJavaObject>("insert", uri, contentValues))
+            contentValues.Call("put", "_display_name", fileName);
+            contentValues.Call("put", "mime_type", "image/png");
+            contentValues.Call("put", "relative_path", "Pictures/AirSnip");
+            contentValues.Call("put", "is_pending", 1);
+            
+            AndroidJavaObject externalUri = mediaStoreImages.CallStatic<AndroidJavaObject>("getContentUri", "external");
+            AndroidJavaObject imageUri = contentResolver.Call<AndroidJavaObject>("insert", externalUri, contentValues);
+            
+            if (imageUri != null)
             {
-              if (insertedUri != null)
+              using (AndroidJavaObject outputStream = contentResolver.Call<AndroidJavaObject>("openOutputStream", imageUri))
               {
-                // Copiar o arquivo para o URI inserido
-                using (AndroidJavaObject outputStream = contentResolver.Call<AndroidJavaObject>("openOutputStream", insertedUri))
+                if (outputStream != null)
                 {
-                  byte[] imageBytes = File.ReadAllBytes(filePath);
+                  // Converter byte[] para jbyteArray
                   sbyte[] signedBytes = System.Array.ConvertAll(imageBytes, b => unchecked((sbyte)b));
                   outputStream.Call("write", signedBytes);
+                  outputStream.Call("flush");
                   outputStream.Call("close");
-                  Debug.Log("Image added to Android MediaStore/Gallery");
+                  
+                  // Marcar como não pendente
+                  contentValues.Call("clear");
+                  contentValues.Call("put", "is_pending", 0);
+                  contentResolver.Call<int>("update", imageUri, contentValues, null, null);
+                  
+                  Debug.Log("Image successfully saved to MediaStore");
+                  return true;
                 }
               }
             }
           }
         }
       }
+      
+      Debug.LogError("Failed to save image via MediaStore");
+      return false;
     }
     catch (System.Exception e)
     {
-      Debug.LogWarning($"Could not refresh Android gallery: {e.Message}");
+      Debug.LogError($"Android MediaStore error: {e.Message}\n{e.StackTrace}");
+      return false;
     }
+    #else
+    // Fallback para editor ou outras plataformas
+    string path = Path.Combine(Application.persistentDataPath, fileName);
+    File.WriteAllBytes(path, imageBytes);
+    Debug.Log($"Image saved to: {path}");
+    return true;
     #endif
   }
   

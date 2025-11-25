@@ -11,7 +11,7 @@ public class MakeInteractable : MonoBehaviour
     // Criar Surface
     GameObject surfaceObj = new GameObject("Surface");
     surfaceObj.transform.SetParent(parent.transform, false);
-    surfaceObj.transform.localPosition = new Vector3(0, 0, 5f);
+    surfaceObj.transform.localPosition = new Vector3(0, 0, 0.02f); // Ajustado: 2cm em world units
     surfaceObj.transform.localRotation = Quaternion.identity;
     surfaceObj.transform.localScale = Vector3.one;
 
@@ -19,7 +19,10 @@ public class MakeInteractable : MonoBehaviour
     var clippedSurface = surfaceObj.AddComponent<ClippedPlaneSurface>();
     clippedSurface.InjectPlaneSurface(planeSurface);
     var boundsSurface = surfaceObj.AddComponent<BoundsClipper>();
-    boundsSurface.Size = new Vector3(0.8f, 0.8f, 1f);
+    // Usar o tamanho do parent (screenshot) em local space - já que é filho do parent
+    Vector3 parentScale = screenshot.transform.localScale;
+    // boundsSurface size com 75% da largura e da altura do parent
+    boundsSurface.Size = new Vector3(parentScale.x * 0.75f, parentScale.y * 0.75f, 0.01f); // Plano com espessura mínima
     clippedSurface.InjectClippers(new List<IBoundsClipper> { boundsSurface });
 
     // Criar e configurar PokeInteractable

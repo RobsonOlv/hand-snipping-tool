@@ -63,7 +63,7 @@ public class GenerateSquare : MonoBehaviour
         if (holdTimer >= holdDuration)
         {
             Debug.Log("[Screenshot] Capturando screenshot...");
-            cameraCanvas.MakeCameraSnapshot(screenshotCenter, screenshotWidth);
+            cameraCanvas.MakeCameraSnapshot(screenshotCenter, screenshotWidth, screenshotHeight);
             screenshotTaken = true;
             holdTimer = 0f;
             return;
@@ -123,10 +123,14 @@ public class GenerateSquare : MonoBehaviour
         float height = ((Vector3.Distance(lp, lt) + Vector3.Distance(rp, rt)) / 2f) + 0.05f;
 
         screenshotWidth = width;
+        screenshotHeight = height;
 
         canvasRectTransform.position = center;
         canvasRectTransform.rotation = Quaternion.LookRotation(forward, up);
         canvasRectTransform.sizeDelta = new Vector2(width, height);
+        
+        // Atualizar o preview do recorte da câmera baseado nas posições das mãos
+        cameraCanvas.UpdatePreviewRect(center, width, height);
     }
 
     void OnDrawGizmos()

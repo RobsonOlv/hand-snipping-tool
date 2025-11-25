@@ -2,9 +2,10 @@
   "dependencies": {
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.google.gemma.cpp": "https://github.com/google/gemma-unity-plugin.git",
-    "com.meta.xr.sdk.all": "76.0.0",
+    "com.meta.xr.mrutilitykit": "81.0.0",
+    "com.meta.xr.sdk.all": "81.0.0",
     "com.meta.xr.sdk.core": "74.0.2",
-    "com.meta.xr.sdk.interaction.ovr": "74.0.3",
+    "com.meta.xr.sdk.interaction.ovr": "81.0.0",
     "com.unity.ai.inference": "2.4.1",
     "com.unity.ai.navigation": "2.0.9",
     "com.unity.collab-proxy": "2.10.0",

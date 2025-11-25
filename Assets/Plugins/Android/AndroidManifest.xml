@@ -17,6 +17,7 @@
     <meta-data android:name="com.oculus.supportedDevices" android:value="quest|quest3" tools:replace="android:value" />
   </application>
   <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
+  <uses-feature android:name="android.hardware.camera2.any" android:required="true" />
   <uses-feature android:name="oculus.software.handtracking" android:required="true" />
   <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="true" />
   <!-- <uses-feature android:name="com.oculus.feature.CONTEXTUAL_BOUNDARYLESS_APP" android:required="true" /> -->

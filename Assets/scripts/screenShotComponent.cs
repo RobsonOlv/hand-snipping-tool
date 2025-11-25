@@ -12,7 +12,7 @@ public class ScreenShotComponent
   private MakeInteractable interactableMaker;
   public Texture2D currentTexture; // Armazena a textura atual (pode ser original ou segmentada)
 
-  public ScreenShotComponent(Transform cameraCanvas, GameObject parent, GameObject menu, Texture2D texture, TextMeshProUGUI debugText)
+  public ScreenShotComponent(Transform cameraCanvas, GameObject parent, GameObject menu, Texture2D texture, TextMeshProUGUI debugText, float worldWidth, float worldHeight)
   {
     try
     {
@@ -39,6 +39,11 @@ public class ScreenShotComponent
       var componentHolder = interactionContainer.AddComponent<ScreenShotComponentHolder>();
       componentHolder.screenshotComponent = this;
 
+      // Armazenar as dimensões reais do screenshot
+      var dimensions = interactionContainer.AddComponent<ScreenshotDimensions>();
+      dimensions.worldWidth = worldWidth;
+      dimensions.worldHeight = worldHeight;
+
       AudioHolder audioHolder = interactionContainer.AddComponent<AudioHolder>();
 
 
@@ -48,18 +53,11 @@ public class ScreenShotComponent
       var cubeRenderer = imageObj.GetComponent<Renderer>();
       cubeRenderer.material = cubeMaterialInstance;
 
-      // Ajusta escala proporcional ao tamanho da textura ou do canvas
-      float width = texture.width;
-      float height = texture.height;
-      float aspectRatio = width / height;
-
-      float targetWidth = 0.2f;
-      float targetHeight = targetWidth / aspectRatio;
+      // Usar as dimensões world space do preview (mesmas do RawImage)
       float cubeDepth = 0.005f;
 
-      interactionContainer.transform.localScale = new Vector3(targetWidth, targetHeight, cubeDepth);
-      // imageObj.transform.localScale = new Vector3(targetWidth, targetHeight, cubeDepth);
-      imageObj.transform.localScale = new Vector3(1f, 1f, 1f); // Ajusta a posição do cubo
+      // Aplicar escala diretamente no cubo usando as dimensões do preview
+      imageObj.transform.localScale = new Vector3(worldWidth, worldHeight, cubeDepth);
 
       GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
       quad.name = "ScreenshotQuad";
@@ -142,7 +140,7 @@ public class ScreenShotComponent
       backQuad.name = "BackQuad";
       backQuad.transform.SetParent(imageObj.transform, false);
       backQuad.transform.localPosition = new Vector3(0, 0, 0.65f);
-      backQuad.transform.localRotation = Quaternion.Euler(0, 180, 0);
+      backQuad.transform.localRotation = Quaternion.Euler(0, 0, 0);
       backQuad.transform.localScale = Vector3.one;
       backQuad.GetComponent<Renderer>().material = new Material(cubeFaceMaterial);
       
