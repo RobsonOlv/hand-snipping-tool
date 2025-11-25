@@ -4,18 +4,40 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
+public class ScreenShotCreationParams
+{
+  public Transform CameraCanvas = null;
+  public GameObject Menu;
+  public GameObject AnchorObject = null;
+  public Texture2D Texture;
+  public TextMeshProUGUI DebugText = null; // Optional
+  public float WorldWidth = 0;
+  public float WorldHeight = 0;
+}
+
 public class ScreenShotComponent
 {
   public GameObject interactionContainer;
+  public GameObject AnchorObject;
   public GameObject imageObj;
   private GameObject frontQuad;
+  public TextMeshProUGUI debugText;
   private MakeInteractable interactableMaker;
   public Texture2D currentTexture; // Armazena a textura atual (pode ser original ou segmentada)
 
-  public ScreenShotComponent(Transform cameraCanvas, GameObject parent, GameObject menu, Texture2D texture, TextMeshProUGUI debugText, float worldWidth, float worldHeight)
+  public ScreenShotComponent(ScreenShotCreationParams parameters)
   {
     try
     {
+      // Desempacotar parâmetros para facilitar uso
+      Transform cameraCanvas = parameters.CameraCanvas;
+      AnchorObject = parameters.AnchorObject;
+      GameObject menu = parameters.Menu;
+      Texture2D texture = parameters.Texture;
+      debugText = parameters.DebugText;
+      float worldWidth = parameters.WorldWidth != 0 ? parameters.WorldWidth : texture.width * 0.001f; // Default width
+      float worldHeight = parameters.WorldHeight != 0 ? parameters.WorldHeight : texture.height * 0.001f; // Default height
+
       // Armazenar a textura inicial
       currentTexture = texture;
       
@@ -31,9 +53,17 @@ public class ScreenShotComponent
       // cubeMaterialInstance.SetTexture("_BaseMap", texture);
       // cubeMaterialInstance.SetTextureScale("_BaseMap", new Vector2(-1, -1)); // Inverte X e Y
 
-      interactionContainer = new GameObject("ScreenshotInteractionContainer");
-      interactionContainer.transform.position = cameraCanvas.position;
-      interactionContainer.transform.rotation = cameraCanvas.rotation;
+      if(AnchorObject != null)
+      {
+        interactionContainer = AnchorObject;
+      }
+      else
+      {
+        interactionContainer = new GameObject("ScreenshotInteractionContainer");
+        interactionContainer.transform.position = cameraCanvas.position;
+        interactionContainer.transform.rotation = cameraCanvas.rotation;
+      }
+
       
       // Adicionar este componente ao container para permitir acesso posterior
       var componentHolder = interactionContainer.AddComponent<ScreenShotComponentHolder>();

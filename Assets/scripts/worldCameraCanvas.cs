@@ -83,7 +83,17 @@ public class WorldCameraCanvas : MonoBehaviour
       // Aplicar o recorte baseado no currentPreviewRect
       Texture2D croppedTexture = CropTexture(sourceTexture, currentPreviewRect);
 
-      var newScreenshot = new ScreenShotComponent(transform, ScreenshotContainer, MenuList, croppedTexture, m_debugText, screenshotWidth, screenshotHeight);
+      var screenshotParams = new ScreenShotCreationParams
+      {
+        CameraCanvas = transform,
+        Menu = MenuList,
+        Texture = croppedTexture,
+        DebugText = m_debugText,
+        WorldWidth = screenshotWidth,
+        WorldHeight = screenshotHeight
+      };
+
+      var newScreenshot = new ScreenShotComponent(screenshotParams);
     }
     catch (System.Exception e)
     {

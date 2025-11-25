@@ -124,7 +124,14 @@ public class AnchorManager : MonoBehaviour
                     Texture2D texture = new Texture2D(data.textureWidth, data.textureHeight, TextureFormat.RGBA32, false);
                     texture.LoadImage(textureBytes);
 
-                    new ScreenShotAnchorComponent(interactionContainer, MenuList, texture);
+                    var screenshotParams = new ScreenShotCreationParams
+                    {
+                        AnchorObject = interactionContainer,
+                        Menu = MenuList,
+                        Texture = texture
+                    };
+
+                    new ScreenShotComponent(screenshotParams);
                 }
                 else
                 {
