@@ -541,6 +541,7 @@ public class MenuOptions : MonoBehaviour
       }
       else
       {
+        cachedRecordingAudioSource.loop = false; // Garantir que não esteja em loop
         cachedRecordingAudioSource.clip = recordedAudioClip;
         cachedRecordingAudioSource.Play();
       }
@@ -583,11 +584,28 @@ public class MenuOptions : MonoBehaviour
   {
     if (!isRecording) return;
     
+    // Capturar a posição atual do microfone antes de parar
+    int lastPos = Microphone.GetPosition(microphoneDevice);
+    bool isMicrophoneRecording = Microphone.IsRecording(microphoneDevice);
+
     isRecording = false;
     Debug.Log("Stopping recording...");
     
     // Parar o microfone
     Microphone.End(microphoneDevice);
+
+    // Se estava gravando e temos uma posição válida, cortamos o áudio
+    // Se o microfone parou sozinho (isMicrophoneRecording == false), significa que atingiu o tempo máximo, então usamos o clip inteiro
+    if (isMicrophoneRecording && lastPos > 0)
+    {
+        float[] samples = new float[lastPos * recordedAudioClip.channels];
+        recordedAudioClip.GetData(samples, 0);
+        
+        AudioClip trimmedClip = AudioClip.Create(recordedAudioClip.name, lastPos, recordedAudioClip.channels, recordedAudioClip.frequency, false);
+        trimmedClip.SetData(samples, 0);
+        
+        recordedAudioClip = trimmedClip;
+    }
 
     AudioHolder audioHolder = screenshotContainer.GetComponent<AudioHolder>();
     
@@ -629,6 +647,7 @@ public class MenuOptions : MonoBehaviour
       }
       else
       {
+        cachedRecordingAudioSource.loop = false;
         cachedRecordingAudioSource.clip = recordedAudioClip;
         cachedRecordingAudioSource.Play();
       }
