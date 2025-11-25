@@ -16,9 +16,22 @@ public class MenuOptions : MonoBehaviour
   public FollowObject followObject;
   public GameObject loadingSpinner;
   public AudioSource audioSource;
-  public AudioClip cachedAudioClip = null;
+  public AudioClip cachedAudioClip = null; // Cache para áudio gerado por TTS
   public AnchorManager anchorManager;
   public AirSnipSegmentation AirSnipSegmentationInstance;
+  public AudioSource CachedRecordingAudioSource => cachedRecordingAudioSource;
+  // Cache separado para áudio gravado pelo usuário
+  public AudioSource cachedRecordingAudioSource;
+  
+  // Áudio gravado armazenado localmente no menuOptions
+  public AudioClip recordedAudioClip = null;
+  
+  // Estado da gravação de áudio (público para ser acessível pelo RecordControl)
+  public bool isRecording = false;
+
+  public GameObject deleteRecordedAudioButton;
+  private const int maxRecordingTime = 60; // 1 minuto em segundos
+  private string microphoneDevice;
 
   [System.Serializable]
   private class TTSRequest
@@ -101,6 +114,8 @@ public class MenuOptions : MonoBehaviour
       Destroy(screenshotContainer);
       cachedAudioClip = null;
       audioSource.clip = null;
+      cachedRecordingAudioSource.clip = null;
+      recordedAudioClip = null;
     }
 
     gameObject.SetActive(false);
@@ -504,6 +519,153 @@ public class MenuOptions : MonoBehaviour
     {
       debugText.enabled = false;
     }
+  }
+  
+  // Função para gravar áudio (máximo 1 minuto)
+  public void RecordAudio()
+  {    
+    // Se já está gravando, parar e salvar a gravação
+    if (isRecording)
+    {
+      StopRecording();
+      deleteRecordedAudioButton.SetActive(true);
+      return;
+    }
+    
+    // Se já existe um áudio gravado, reproduzir ou parar
+    if (recordedAudioClip != null)
+    {
+      if (cachedRecordingAudioSource.isPlaying)
+      {
+        cachedRecordingAudioSource.Stop();
+      }
+      else
+      {
+        cachedRecordingAudioSource.clip = recordedAudioClip;
+        cachedRecordingAudioSource.Play();
+      }
+      return;
+    }
+    
+    // Iniciar nova gravação apenas se não tiver áudio gravado
+    StartRecording();
+  }
+  
+  private void StartRecording()
+  {
+    // Obter o dispositivo de microfone padrão
+    if (Microphone.devices.Length > 0)
+    {
+      microphoneDevice = Microphone.devices[0];
+      Debug.Log($"Starting recording with microphone: {microphoneDevice}");
+      
+      // Iniciar gravação em variável local (frequência de 44100 Hz, máximo 60 segundos)
+      recordedAudioClip = Microphone.Start(microphoneDevice, false, maxRecordingTime, 44100);
+      isRecording = true;
+      
+      Debug.Log("Recording started...");
+      
+      // Iniciar corrotina para parar automaticamente após 1 minuto
+      StartCoroutine(StopRecordingAfterTime(maxRecordingTime));
+    }
+    else
+    {
+      Debug.LogError("No microphone detected!");
+      if (debugText != null)
+      {
+        debugText.text = "Erro: Nenhum microfone detectado.";
+        debugText.enabled = true;
+      }
+    }
+  }
+  
+  private void StopRecording()
+  {
+    if (!isRecording) return;
+    
+    isRecording = false;
+    Debug.Log("Stopping recording...");
+    
+    // Parar o microfone
+    Microphone.End(microphoneDevice);
+
+    AudioHolder audioHolder = screenshotContainer.GetComponent<AudioHolder>();
+    
+    // Salvar o clip no audioHolder para persistência
+    if (audioHolder != null)
+    {
+      audioHolder.recordedClip = recordedAudioClip;
+    }
+  
+    
+    Debug.Log($"Recording stopped. Audio clip duration: {recordedAudioClip.length} seconds");
+  }
+  
+  private IEnumerator StopRecordingAfterTime(float time)
+  {
+    yield return new WaitForSeconds(time);
+    
+    if (isRecording)
+    {
+      StopRecording();
+      Debug.Log("Recording stopped automatically after max time.");
+    }
+  }
+  
+  // Função para reproduzir o áudio gravado
+  public void PlayRecordedAudio()
+  {
+    if (recordedAudioClip == null)
+    {
+      Debug.LogError("No audio clip to play.");
+      return;
+    }
+
+    if(recordedAudioClip != null)
+    {
+      if (cachedRecordingAudioSource.isPlaying)
+      {
+        cachedRecordingAudioSource.Stop();
+      }
+      else
+      {
+        cachedRecordingAudioSource.clip = recordedAudioClip;
+        cachedRecordingAudioSource.Play();
+      }
+    }
+  }
+  
+  // Função para apagar o áudio gravado
+  public void DeleteAudio()
+  {
+    // Parar reprodução se estiver tocando
+    if (cachedRecordingAudioSource.isPlaying)
+    {
+      cachedRecordingAudioSource.Stop();
+    }
+    
+    // Parar gravação se estiver gravando
+    if (isRecording)
+    {
+      Microphone.End(microphoneDevice);
+      isRecording = false;
+    }
+    
+    // Limpar o clip local
+    recordedAudioClip = null;
+    deleteRecordedAudioButton.SetActive(false);
+
+    AudioHolder audioHolder = screenshotContainer.GetComponent<AudioHolder>();
+    
+    // Limpar também do audioHolder para persistência
+    if (audioHolder != null)
+    {
+      audioHolder.recordedClip = null;
+    }
+    
+    cachedRecordingAudioSource.clip = null;
+    
+    Debug.Log("Audio deleted.");
   }
 }
 

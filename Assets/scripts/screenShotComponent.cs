@@ -54,7 +54,7 @@ public class ScreenShotComponent
       cubeRenderer.material = cubeMaterialInstance;
 
       // Usar as dimensões world space do preview (mesmas do RawImage)
-      float cubeDepth = 0.005f;
+      float cubeDepth = 0.002f;
 
       // Aplicar escala diretamente no cubo usando as dimensões do preview
       imageObj.transform.localScale = new Vector3(worldWidth, worldHeight, cubeDepth);

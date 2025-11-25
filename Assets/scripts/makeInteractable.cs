@@ -67,6 +67,8 @@ public class MakeInteractable : MonoBehaviour
         if (audioHolder != null)
         {
           Debug.Log("[UPDATESTATE] AudioHolder found");
+          
+          // Carregar áudio TTS do audioHolder
           if (audioHolder.audioClip == null)
           {
             Debug.Log("[UPDATESTATE] has'nt audioClip");
@@ -78,6 +80,20 @@ public class MakeInteractable : MonoBehaviour
             Debug.Log("[UPDATESTATE] has audioClip");
             menuOptions.cachedAudioClip = audioHolder.audioClip;
             menuOptions.audioSource.clip = audioHolder.audioClip;
+          }
+          
+          // Carregar áudio gravado do audioHolder (se existir)
+          if (audioHolder.recordedClip != null)
+          {
+            Debug.Log("[UPDATESTATE] has recordedClip");
+            menuOptions.cachedRecordingAudioSource.clip = audioHolder.recordedClip;
+            menuOptions.recordedAudioClip = audioHolder.recordedClip;
+          }
+          else
+          {
+            Debug.Log("[UPDATESTATE] has'nt recordedClip");
+            menuOptions.cachedRecordingAudioSource.clip = null;
+            menuOptions.recordedAudioClip = null;
           }
         }
         else
