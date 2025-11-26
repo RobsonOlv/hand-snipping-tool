@@ -8,5 +8,7 @@ public class ScreenshotAnchorData
   public string audioPath;
   public int textureWidth;
   public int textureHeight;
+  public float worldWidth;
+  public float worldHeight;
   public Vector3 localScale;
 }

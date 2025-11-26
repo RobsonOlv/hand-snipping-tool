@@ -59,6 +59,15 @@ public class AnchorManager : MonoBehaviour
                     }
                 }
 
+                float worldWidth = 0;
+                float worldHeight = 0;
+                var dimensions = screenshotContainer.GetComponent<ScreenshotDimensions>();
+                if (dimensions != null)
+                {
+                    worldWidth = dimensions.worldWidth;
+                    worldHeight = dimensions.worldHeight;
+                }
+
                 var data = new ScreenshotAnchorData
                 {
                     uuid = anchor.Uuid.ToString(),
@@ -66,6 +75,8 @@ public class AnchorManager : MonoBehaviour
                     audioPath = audioPath,
                     textureHeight = texture.height,
                     textureWidth = texture.width,
+                    worldWidth = worldWidth,
+                    worldHeight = worldHeight,
                     localScale = anchor.transform.localScale
                 };
 
@@ -275,7 +286,9 @@ public class AnchorManager : MonoBehaviour
                         AnchorObject = interactionContainer,
                         Menu = MenuList,
                         Texture = texture,
-                        RecordedAudio = loadedAudio
+                        RecordedAudio = loadedAudio,
+                        WorldWidth = data.worldWidth,
+                        WorldHeight = data.worldHeight
                     };
 
                     new ScreenShotComponent(screenshotParams);
