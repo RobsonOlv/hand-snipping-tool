@@ -249,6 +249,7 @@ public class AnchorManager : MonoBehaviour
                     unboundAnchor.BindTo(spatialAnchor);
 
                     await spatialAnchor.WhenLocalizedAsync();
+                    spatialAnchor.enabled = false;
 
                     interactionContainer.transform.localScale = data.localScale;
 
