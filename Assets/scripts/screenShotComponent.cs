@@ -10,6 +10,7 @@ public class ScreenShotCreationParams
   public GameObject Menu;
   public GameObject AnchorObject = null;
   public Texture2D Texture;
+  public AudioClip RecordedAudio = null; // Optional
   public TextMeshProUGUI DebugText = null; // Optional
   public float WorldWidth = 0;
   public float WorldHeight = 0;
@@ -34,6 +35,7 @@ public class ScreenShotComponent
       AnchorObject = parameters.AnchorObject;
       GameObject menu = parameters.Menu;
       Texture2D texture = parameters.Texture;
+      AudioClip recordedAudio = parameters.RecordedAudio;
       debugText = parameters.DebugText;
       float worldWidth = parameters.WorldWidth != 0 ? parameters.WorldWidth : texture.width * 0.001f; // Default width
       float worldHeight = parameters.WorldHeight != 0 ? parameters.WorldHeight : texture.height * 0.001f; // Default height
@@ -75,6 +77,10 @@ public class ScreenShotComponent
       dimensions.worldHeight = worldHeight;
 
       AudioHolder audioHolder = interactionContainer.AddComponent<AudioHolder>();
+      if (recordedAudio != null)
+      {
+        audioHolder.recordedClip = recordedAudio;
+      }
 
 
       imageObj = GameObject.CreatePrimitive(PrimitiveType.Cube);

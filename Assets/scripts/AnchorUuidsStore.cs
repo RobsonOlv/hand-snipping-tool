@@ -20,6 +20,32 @@ public static class AnchorUuidStore
     public static void Remove(Guid uuid)
     {
         var list = LoadAll();
+        
+        // Encontrar itens para remover e deletar arquivos associados
+        var itemsToRemove = list.Where(d => d.uuid == uuid.ToString()).ToList();
+        foreach (var item in itemsToRemove)
+        {
+            if (!string.IsNullOrEmpty(item.texturePath) && File.Exists(item.texturePath))
+            {
+                try 
+                {
+                    File.Delete(item.texturePath);
+                    Debug.Log($"[AnchorUuidStore] Deleted texture file: {item.texturePath}");
+                }
+                catch (Exception e) { Debug.LogError($"[AnchorUuidStore] Failed to delete texture: {e.Message}"); }
+            }
+
+            if (!string.IsNullOrEmpty(item.audioPath) && File.Exists(item.audioPath))
+            {
+                try
+                {
+                    File.Delete(item.audioPath);
+                    Debug.Log($"[AnchorUuidStore] Deleted audio file: {item.audioPath}");
+                }
+                catch (Exception e) { Debug.LogError($"[AnchorUuidStore] Failed to delete audio: {e.Message}"); }
+            }
+        }
+
         int removedCount = list.RemoveAll(d => d.uuid == uuid.ToString());
         
         if (removedCount > 0)
@@ -43,6 +69,20 @@ public static class AnchorUuidStore
 
     public static void EraseAll()
     {
+        // Deletar todos os arquivos associados antes de apagar o JSON
+        var list = LoadAll();
+        foreach (var item in list)
+        {
+            if (!string.IsNullOrEmpty(item.texturePath) && File.Exists(item.texturePath))
+            {
+                try { File.Delete(item.texturePath); } catch { }
+            }
+            if (!string.IsNullOrEmpty(item.audioPath) && File.Exists(item.audioPath))
+            {
+                try { File.Delete(item.audioPath); } catch { }
+            }
+        }
+
         if (File.Exists(FilePath))
         {
             File.Delete(FilePath);
