@@ -123,9 +123,9 @@ public class MenuOptions : MonoBehaviour
   private IEnumerator SendPromptMediaRequestToGemini()
   {
     if (loadingSpinner != null) loadingSpinner.SetActive(true);
-    string apiKey = "YOUR_API_KEY_HERE"
+    string apiKey = "YOUR_API_KEY_HERE";
     string promptText = "Considerando o objeto principal dessa imagem e sua espécie, tipo ou material, gere um texto curto explicando sobre esse objeto para uma criança usando uma linguagem divertida e que vise o aprendizado. Ignore mãos na imagem. Não cite o prompt na resposta. Responda apenas com o texto, sem formatação ou tags HTML. Não inclua informações sobre a imagem, apenas descreva o objeto principal de forma educativa e divertida.";
-    string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={YOUR_API_KEY_HERE}";
+    string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}";
     string base64Media = ConvertTextureToBase64(screenshotImage);
 
     string jsonBody = $@"
