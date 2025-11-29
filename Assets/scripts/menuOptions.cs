@@ -30,6 +30,7 @@ public class MenuOptions : MonoBehaviour
   public bool isRecording = false;
 
   public GameObject deleteRecordedAudioButton;
+  public ToastController toastController; // Referência direta ao ToastController
   private const int maxRecordingTime = 60; // 1 minuto em segundos
   private string microphoneDevice;
 
@@ -75,29 +76,34 @@ public class MenuOptions : MonoBehaviour
 
   public void GenerateGeminiInput()
   {
-    Debug.Log("GenerateGeminiInput called");
-    if (cachedAudioClip != null)
-    {
-      if (audioSource.isPlaying)
-        audioSource.Stop();
-      else
-        audioSource.Play();
-
-      return;
-    }
-
-    if (screenshotImage != null)
-    {
-      StartCoroutine(SendPromptMediaRequestToGemini());
-    }
-    else
-    {
-      if (debugText != null)
+    try {
+      Debug.Log("GenerateGeminiInput called");
+      if (cachedAudioClip != null)
       {
-        debugText.text = "Screenshot image is null.";
-        debugText.enabled = true;
+        if (audioSource.isPlaying)
+          audioSource.Stop();
+        else
+          audioSource.Play();
+
+        return;
       }
-      Debug.LogError("Screenshot image is null.");
+
+      if (screenshotImage != null)
+      {
+        StartCoroutine(SendPromptMediaRequestToGemini());
+      }
+      else
+      {
+        if (debugText != null)
+        {
+          debugText.text = "Screenshot image is null.";
+          debugText.enabled = true;
+        }
+        Debug.LogError("Screenshot image is null.");
+      }
+    } catch
+    {
+      toastController.ShowToast("Failed to generate AI response.");
     }
   }
 
@@ -327,8 +333,14 @@ public class MenuOptions : MonoBehaviour
     // var renderer = screenshotContainer.GetComponentsInChildren<Renderer>();
     // renderer[0].enabled = false;
     // await anchor.WhenLocalizedAsync();
+    try {
+      anchorManager.SaveAnchor(screenshotContainer, screenshotImage);
+      toastController.ShowToast("Anchor saved successfully.");
+    } catch (Exception e) {
+      Debug.LogError("Error saving anchor: " + e.Message);
+      toastController.ShowToast("Failed to save anchor.");
+    }
     
-    anchorManager.SaveAnchor(screenshotContainer, screenshotImage);
     // if (anchor != null)
     // {
     //   Debug.Log("Anchor saved with UUID: " + anchor.Uuid);
@@ -352,6 +364,7 @@ public class MenuOptions : MonoBehaviour
       if (segmentedTexture == null)
       {
         Debug.LogError("Segmentation returned null texture.");
+        toastController.ShowToast("Something went wrong during segmentation.");
         return;
       }
       
@@ -366,16 +379,19 @@ public class MenuOptions : MonoBehaviour
         // Atualizar a textura do quad frontal
         holder.screenshotComponent.UpdateTexture(segmentedTexture);
         Debug.Log("Segmented texture applied successfully.");
+        toastController.ShowToast("Segmentation completed.");
       }
       else
       {
         Debug.LogError("ScreenShotComponentHolder or screenshotComponent not found.");
+        toastController.ShowToast("ScreenShotComponentHolder or screenshotComponent not found.");
       }
       
     } 
     catch (System.Exception e)
     {
       Debug.LogError("Error during image segmentation: " + e.Message);
+      toastController.ShowToast("Error during image segmentation");
       if (debugText != null)
       {
         debugText.text = "Erro na segmentação: " + e.Message;
@@ -389,17 +405,10 @@ public class MenuOptions : MonoBehaviour
   }
 
   public void DownloadImage()
-  {
-    Debug.Log("DownloadImage called");
-    
+  {   
     if (screenshotImage == null)
     {
-      Debug.LogError("Screenshot image is null. Cannot download.");
-      if (debugText != null)
-      {
-        debugText.text = "Erro: Imagem não encontrada.";
-        debugText.enabled = true;
-      }
+      toastController.ShowToast("Screenshot not found.");
       return;
     }
 
@@ -420,21 +429,12 @@ public class MenuOptions : MonoBehaviour
       if (success)
       {
         Debug.Log($"Image saved successfully: {fileName}");
-        if (debugText != null)
-        {
-          debugText.text = "Imagem salva na galeria!";
-          debugText.enabled = true;
-          StartCoroutine(HideDebugTextAfterDelay(3f));
-        }
+        toastController.ShowToast("Image saved successfully. Check your gallery.");
       }
       else
       {
         Debug.LogError("Failed to save image to gallery");
-        if (debugText != null)
-        {
-          debugText.text = "Erro ao salvar imagem";
-          debugText.enabled = true;
-        }
+        toastController.ShowToast("Failed to save image to gallery");
       }
     }
     catch (System.Exception e)
@@ -453,55 +453,33 @@ public class MenuOptions : MonoBehaviour
     #if UNITY_ANDROID && !UNITY_EDITOR
     try
     {
-      using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-      using (AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
-      using (AndroidJavaObject contentResolver = currentActivity.Call<AndroidJavaObject>("getContentResolver"))
+      // No Quest 3, o caminho padrão para screenshots é /sdcard/Oculus/Screenshots
+      // Mas para garantir compatibilidade e visibilidade na galeria, DCIM ou Pictures são recomendados.
+      // Vamos tentar salvar diretamente no diretório público de Pictures primeiro.
+      
+      string picturesDir = "/sdcard/Pictures/AirSnip";
+      if (!Directory.Exists(picturesDir))
       {
-        // Usar MediaStore.Images.Media
-        using (AndroidJavaClass mediaStoreImages = new AndroidJavaClass("android.provider.MediaStore$Images$Media"))
-        {
-          using (AndroidJavaObject contentValues = new AndroidJavaObject("android.content.ContentValues"))
-          {
-            contentValues.Call("put", "_display_name", fileName);
-            contentValues.Call("put", "mime_type", "image/png");
-            contentValues.Call("put", "relative_path", "Pictures/AirSnip");
-            contentValues.Call("put", "is_pending", 1);
-            
-            AndroidJavaObject externalUri = mediaStoreImages.CallStatic<AndroidJavaObject>("getContentUri", "external");
-            AndroidJavaObject imageUri = contentResolver.Call<AndroidJavaObject>("insert", externalUri, contentValues);
-            
-            if (imageUri != null)
-            {
-              using (AndroidJavaObject outputStream = contentResolver.Call<AndroidJavaObject>("openOutputStream", imageUri))
-              {
-                if (outputStream != null)
-                {
-                  // Converter byte[] para jbyteArray
-                  sbyte[] signedBytes = System.Array.ConvertAll(imageBytes, b => unchecked((sbyte)b));
-                  outputStream.Call("write", signedBytes);
-                  outputStream.Call("flush");
-                  outputStream.Call("close");
-                  
-                  // Marcar como não pendente
-                  contentValues.Call("clear");
-                  contentValues.Call("put", "is_pending", 0);
-                  contentResolver.Call<int>("update", imageUri, contentValues, null, null);
-                  
-                  Debug.Log("Image successfully saved to MediaStore");
-                  return true;
-                }
-              }
-            }
-          }
-        }
+          Directory.CreateDirectory(picturesDir);
       }
       
-      Debug.LogError("Failed to save image via MediaStore");
-      return false;
+      string filePath = Path.Combine(picturesDir, fileName);
+      File.WriteAllBytes(filePath, imageBytes);
+      
+      // Forçar o MediaScanner a indexar o arquivo para aparecer na galeria
+      using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+      using (AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+      using (AndroidJavaClass mediaScanner = new AndroidJavaClass("android.media.MediaScannerConnection"))
+      {
+          mediaScanner.CallStatic("scanFile", currentActivity, new string[] { filePath }, new string[] { "image/png" }, null);
+      }
+      
+      Debug.Log($"Image saved to: {filePath}");
+      return true;
     }
     catch (System.Exception e)
     {
-      Debug.LogError($"Android MediaStore error: {e.Message}\n{e.StackTrace}");
+      Debug.LogError($"Android File Save error: {e.Message}\n{e.StackTrace}");
       return false;
     }
     #else
@@ -684,7 +662,8 @@ public class MenuOptions : MonoBehaviour
     }
     
     cachedRecordingAudioSource.clip = null;
-    
+
+    toastController.ShowToast("Audio deleted.");
     Debug.Log("Audio deleted.");
   }
 }
