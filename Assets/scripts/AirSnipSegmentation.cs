@@ -20,15 +20,17 @@ public class AirSnipSegmentation : MonoBehaviour
     // Cache para não alocar memória todo frame
     private RenderTexture resultMaskRenderTexture;
 
-    // Dimensões padrão do YOLOv8
-    private const int ImageSize = 640;
+    // Dimensões do modelo (configurável no Inspector)
+    [Tooltip("Tamanho da imagem de entrada do modelo (ex: 640 para YOLOv8/11 padrão).")]
+    public int imageSize = 640;
+    
     private const int MaskCoefStartIndex = 84;
     private const int NumMaskCoeffs = 32;
 
     void Start()
     {
         // Prepara a RenderTexture de saída
-        resultMaskRenderTexture = new RenderTexture(ImageSize, ImageSize, 0, RenderTextureFormat.RFloat);
+        resultMaskRenderTexture = new RenderTexture(imageSize, imageSize, 0, RenderTextureFormat.RFloat);
         resultMaskRenderTexture.enableRandomWrite = true; 
         resultMaskRenderTexture.Create();
 
@@ -77,11 +79,12 @@ public class AirSnipSegmentation : MonoBehaviour
 
             // 3. Gerar a Máscara (MatMul)
             // Define o shape explicitamente (Inference Engine exige TensorShape ou int[])
-            var protosFlat = prototypes.Reshape(new int[] { NumMaskCoeffs, 160 * 160 });
+            int maskSize = imageSize / 4;
+            var protosFlat = prototypes.Reshape(new int[] { NumMaskCoeffs, maskSize * maskSize });
             
             var maskFlat = Functional.MatMul(bestCoeffs, protosFlat);
             
-            var maskRaw = maskFlat.Reshape(new int[] { 1, 1, 160, 160 });
+            var maskRaw = maskFlat.Reshape(new int[] { 1, 1, maskSize, maskSize });
             var maskSigmoid = Functional.Sigmoid(maskRaw);
 
             // 4. Upsample (Interpolate)
@@ -114,7 +117,7 @@ public class AirSnipSegmentation : MonoBehaviour
         }
 
         // 1. Converte Input para Tensor
-        using var inputTensor = TextureConverter.ToTensor(inputImage, width: ImageSize, height: ImageSize, channels: 3);
+        using var inputTensor = TextureConverter.ToTensor(inputImage, width: imageSize, height: imageSize, channels: 3);
 
         // 2. Executa o worker (retorna ambos outputs)
         workerMask.Schedule(inputTensor);
@@ -141,8 +144,8 @@ public class AirSnipSegmentation : MonoBehaviour
         float y2_640 = yCenter + boxHeight / 2f;
         
         // Escala para as dimensões da imagem original
-        float scaleX = (float)inputImage.width / ImageSize;
-        float scaleY = (float)inputImage.height / ImageSize;
+        float scaleX = (float)inputImage.width / imageSize;
+        float scaleY = (float)inputImage.height / imageSize;
         
         int x1 = Mathf.Max(0, Mathf.RoundToInt(x1_640 * scaleX));
         int y1_top = Mathf.Max(0, Mathf.RoundToInt(y1_640 * scaleY));
@@ -159,8 +162,8 @@ public class AirSnipSegmentation : MonoBehaviour
         
         // Lê a máscara e aplica no canal alpha
         RenderTexture.active = resultMaskRenderTexture;
-        Texture2D maskTexture = new Texture2D(ImageSize, ImageSize, TextureFormat.RGBAFloat, mipChain: false);
-        maskTexture.ReadPixels(new Rect(0, 0, ImageSize, ImageSize), 0, 0);
+        Texture2D maskTexture = new Texture2D(imageSize, imageSize, TextureFormat.RGBAFloat, mipChain: false);
+        maskTexture.ReadPixels(new Rect(0, 0, imageSize, imageSize), 0, 0);
         maskTexture.Apply();
         RenderTexture.active = null;
         
@@ -171,9 +174,9 @@ public class AirSnipSegmentation : MonoBehaviour
         {
             int x = i % inputImage.width;
             int y = i / inputImage.width;
-            int maskX = Mathf.Clamp((int)((float)x / inputImage.width * ImageSize), 0, ImageSize - 1);
-            int maskY = Mathf.Clamp((int)((float)y / inputImage.height * ImageSize), 0, ImageSize - 1);
-            int maskIndex = maskY * ImageSize + maskX;
+            int maskX = Mathf.Clamp((int)((float)x / inputImage.width * imageSize), 0, imageSize - 1);
+            int maskY = Mathf.Clamp((int)((float)y / inputImage.height * imageSize), 0, imageSize - 1);
+            int maskIndex = maskY * imageSize + maskX;
             
             pixels[i].a = maskPixels[maskIndex].r;
         }

@@ -67,11 +67,41 @@ public class MenuOptions : MonoBehaviour
     public string audioContent;
   }
   private const string AnchorIdsKey = "SavedAnchorIds";
+  private static bool logCleared = false;
 
   void Start()
   {
+    if (!logCleared)
+    {
+        ClearSegmentationLog();
+        logCleared = true;
+    }
+
     if (followObject == null)
       followObject = gameObject.GetComponent<FollowObject>();
+  }
+
+  private void ClearSegmentationLog()
+  {
+      #if UNITY_ANDROID && !UNITY_EDITOR
+      string logDir = "/sdcard/Documents/AirSnip";
+      #else
+      string logDir = Path.Combine(Application.persistentDataPath, "Logs");
+      #endif
+
+      string filePath = Path.Combine(logDir, "segmentation_times.csv");
+      try
+      {
+          if (File.Exists(filePath))
+          {
+              File.Delete(filePath);
+              Debug.Log("Segmentation log cleared on app start.");
+          }
+      }
+      catch (Exception e)
+      {
+          Debug.LogError($"Failed to clear segmentation log: {e.Message}");
+      }
   }
 
   public void GenerateGeminiInput()
@@ -358,9 +388,17 @@ public class MenuOptions : MonoBehaviour
     {
       loadingSpinner.SetActive(true);
       
+      // Iniciar medição de tempo
+      System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
+      stopwatch.Start();
+
       // Realizar a segmentação da imagem
       Texture2D segmentedTexture = AirSnipSegmentationInstance.GetSegmentationMask(screenshotImage);
       
+      stopwatch.Stop();
+      long elapsedMs = stopwatch.ElapsedMilliseconds;
+      LogSegmentationTime(elapsedMs);
+
       if (segmentedTexture == null)
       {
         Debug.LogError("Segmentation returned null texture.");
@@ -378,8 +416,8 @@ public class MenuOptions : MonoBehaviour
       {
         // Atualizar a textura do quad frontal
         holder.screenshotComponent.UpdateTexture(segmentedTexture);
-        Debug.Log("Segmented texture applied successfully.");
-        toastController.ShowToast("Segmentation completed.");
+        Debug.Log($"Segmented texture applied successfully. Time: {elapsedMs}ms");
+        toastController.ShowToast($"Segmentation completed in {elapsedMs}ms.");
       }
       else
       {
@@ -402,6 +440,40 @@ public class MenuOptions : MonoBehaviour
     {
       loadingSpinner.SetActive(false);
     }
+  }
+
+  private void LogSegmentationTime(long durationMs)
+  {
+      string logLine = $"{System.DateTime.Now:yyyy-MM-dd HH:mm:ss},{durationMs}\n";
+      
+      #if UNITY_ANDROID && !UNITY_EDITOR
+      string logDir = "/sdcard/Documents/AirSnip";
+      #else
+      string logDir = Path.Combine(Application.persistentDataPath, "Logs");
+      #endif
+
+      try
+      {
+          if (!Directory.Exists(logDir))
+          {
+              Directory.CreateDirectory(logDir);
+          }
+
+          string filePath = Path.Combine(logDir, "segmentation_times.csv");
+          
+          // Adicionar cabeçalho se o arquivo não existir
+          if (!File.Exists(filePath))
+          {
+              File.AppendAllText(filePath, "Timestamp,DurationMs\n");
+          }
+
+          File.AppendAllText(filePath, logLine);
+          Debug.Log($"Segmentation time logged: {durationMs}ms to {filePath}");
+      }
+      catch (Exception e)
+      {
+          Debug.LogError($"Failed to log segmentation time: {e.Message}");
+      }
   }
 
   public void DownloadImage()
