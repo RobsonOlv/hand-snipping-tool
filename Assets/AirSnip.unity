@@ -2750,7 +2750,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 796e48ce20d4054418e929f0df8d20d3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AirSnipSegmentation
-  modelAsset: {fileID: 5022602860645237092, guid: 5231f887db55f6e4ba75001208a33cf1, type: 3}
+  modelAsset: {fileID: 5022602860645237092, guid: 7a96882e7f82bc94fb7e9b7a205aa5f0, type: 3}
+  imageSize: 640
 --- !u!1 &191406667
 GameObject:
   m_ObjectHideFlags: 0
