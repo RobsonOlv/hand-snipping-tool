@@ -8,6 +8,7 @@ using UnityEngine;
 public class AnchorManager : MonoBehaviour
 {
     public GameObject MenuList;
+    public List<ScreenshotAnchorData> NonLocalizedAnchors = new();
     private List<OVRSpatialAnchor.UnboundAnchor> _unboundAnchors = new();
     private const string AnchorIdsKey = "SavedAnchorIds";
 
@@ -223,6 +224,8 @@ public class AnchorManager : MonoBehaviour
         Debug.Log($"[AnchorManager] Loading anchors with uuids: {string.Join(", ", uuids)}");
 
         _unboundAnchors.Clear();
+        NonLocalizedAnchors.Clear();
+        HashSet<Guid> localizedUuids = new HashSet<Guid>();
 
         // Step 1: Load
         var result = await OVRSpatialAnchor.LoadUnboundAnchorsAsync(uuids, _unboundAnchors);
@@ -244,55 +247,8 @@ public class AnchorManager : MonoBehaviour
                 bool success = await unboundAnchor.LocalizeAsync();
                 if (success)
                 {
-                    var interactionContainer = new GameObject($"Anchor_{unboundAnchor.Uuid}");
-                    var spatialAnchor = interactionContainer.AddComponent<OVRSpatialAnchor>();
-                    unboundAnchor.BindTo(spatialAnchor);
-
-                    await spatialAnchor.WhenLocalizedAsync();
-                    spatialAnchor.enabled = false;
-
-                    interactionContainer.transform.localScale = data.localScale;
-
-                    if (!File.Exists(data.texturePath))
-                    {
-                        Debug.LogWarning($"[AnchorManager] Texture not found: {data.texturePath}");
-                        return;
-                    }
-
-                    byte[] textureBytes = File.ReadAllBytes(data.texturePath);
-                    Texture2D texture = new Texture2D(data.textureWidth, data.textureHeight, TextureFormat.RGBA32, false);
-                    texture.LoadImage(textureBytes);
-
-                    AudioClip loadedAudio = null;
-                    if (!string.IsNullOrEmpty(data.audioPath) && File.Exists(data.audioPath))
-                    {
-                        using (var uwr = UnityEngine.Networking.UnityWebRequestMultimedia.GetAudioClip("file://" + data.audioPath, AudioType.WAV))
-                        {
-                            await uwr.SendWebRequest();
-                            if (uwr.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
-                            {
-                                loadedAudio = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(uwr);
-                                loadedAudio.name = "LoadedRecording";
-                                Debug.Log($"[AnchorManager] Audio loaded from {data.audioPath}");
-                            }
-                            else
-                            {
-                                Debug.LogError($"[AnchorManager] Failed to load audio: {uwr.error}");
-                            }
-                        }
-                    }
-
-                    var screenshotParams = new ScreenShotCreationParams
-                    {
-                        AnchorObject = interactionContainer,
-                        Menu = MenuList,
-                        Texture = texture,
-                        RecordedAudio = loadedAudio,
-                        WorldWidth = data.worldWidth,
-                        WorldHeight = data.worldHeight
-                    };
-
-                    new ScreenShotComponent(screenshotParams);
+                    localizedUuids.Add(unboundAnchor.Uuid);
+                    await CreateAnchorObject(data, unboundAnchor, true);
                 }
                 else
                 {
@@ -304,5 +260,86 @@ public class AnchorManager : MonoBehaviour
         {
             Debug.LogError($"[AnchorManager] Load failed with error {result.Status}.");
         }
+
+        // Handle non-localized anchors (failed to localize or failed to load)
+        foreach (var data in allData)
+        {
+            if (!localizedUuids.Contains(Guid.Parse(data.uuid)))
+            {
+                Debug.LogWarning($"[AnchorManager] Anchor {data.uuid} could not be localized. Added to NonLocalizedAnchors list.");
+                NonLocalizedAnchors.Add(data);
+            }
+        }
+    }
+    public async UniTask CreateAnchorObject(ScreenshotAnchorData data, OVRSpatialAnchor.UnboundAnchor unboundAnchor, bool isLocalized)
+    {
+        GameObject interactionContainer;
+
+        if (isLocalized)
+        {
+            interactionContainer = new GameObject($"Anchor_{unboundAnchor.Uuid}");
+            var spatialAnchor = interactionContainer.AddComponent<OVRSpatialAnchor>();
+            unboundAnchor.BindTo(spatialAnchor);
+
+            await spatialAnchor.WhenLocalizedAsync();
+            spatialAnchor.enabled = false;
+        }
+        else
+        {
+            interactionContainer = new GameObject($"Anchor_{data.uuid}_Restored");
+            if (Camera.main != null)
+            {
+                var head = Camera.main.transform;
+                // Add some random offset to avoid perfect stacking
+                Vector3 randomOffset = new Vector3(UnityEngine.Random.Range(-0.2f, 0.2f), UnityEngine.Random.Range(-0.1f, 0.1f), 0);
+                interactionContainer.transform.position = head.position + head.forward * 0.4f + randomOffset;
+                interactionContainer.transform.LookAt(head);
+                interactionContainer.transform.Rotate(0, 180, 0); // Face the user
+            }
+        }
+
+        interactionContainer.transform.localScale = data.localScale;
+
+        if (!File.Exists(data.texturePath))
+        {
+            Debug.LogWarning($"[AnchorManager] Texture not found: {data.texturePath}");
+            Destroy(interactionContainer);
+            return;
+        }
+
+        byte[] textureBytes = File.ReadAllBytes(data.texturePath);
+        Texture2D texture = new Texture2D(data.textureWidth, data.textureHeight, TextureFormat.RGBA32, false);
+        texture.LoadImage(textureBytes);
+
+        AudioClip loadedAudio = null;
+        if (!string.IsNullOrEmpty(data.audioPath) && File.Exists(data.audioPath))
+        {
+            using (var uwr = UnityEngine.Networking.UnityWebRequestMultimedia.GetAudioClip("file://" + data.audioPath, AudioType.WAV))
+            {
+                await uwr.SendWebRequest();
+                if (uwr.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
+                {
+                    loadedAudio = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(uwr);
+                    loadedAudio.name = "LoadedRecording";
+                    Debug.Log($"[AnchorManager] Audio loaded from {data.audioPath}");
+                }
+                else
+                {
+                    Debug.LogError($"[AnchorManager] Failed to load audio: {uwr.error}");
+                }
+            }
+        }
+
+        var screenshotParams = new ScreenShotCreationParams
+        {
+            AnchorObject = interactionContainer,
+            Menu = MenuList,
+            Texture = texture,
+            RecordedAudio = loadedAudio,
+            WorldWidth = data.worldWidth,
+            WorldHeight = data.worldHeight
+        };
+
+        new ScreenShotComponent(screenshotParams);
     }
 }

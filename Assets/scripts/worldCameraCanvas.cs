@@ -61,7 +61,9 @@ public class WorldCameraCanvas : MonoBehaviour
           return;
         }
 
-        sourceTexture = dogImage;
+        sourceTexture = new Texture2D(dogImage.width, dogImage.height, TextureFormat.RGBA32, false);
+        sourceTexture.SetPixels(dogImage.GetPixels());
+        sourceTexture.Apply();
       }
       else
       {
